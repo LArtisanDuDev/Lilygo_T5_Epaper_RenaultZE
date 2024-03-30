@@ -16,6 +16,7 @@
 
 #include <FreeSansBold50pt7b.h>
 #include <Fonts/FreeSans18pt7b.h>
+#include <Fonts/FreeSans9pt7b.h>
 #include <icons.h>
 
 // ESP32 battery (not Car :) )
@@ -49,14 +50,14 @@ String chargingRemainingTime="";
 
 // plugStatus
 // from https://github.com/hacf-fr/renault-api/blob/main/src/renault_api/kamereon/enums.py#L20
-#define PLUGSTATUS_UNPLUGGED "0"
-#define PLUGSTATUS_PLUGGED "1"
+String PLUGSTATUS_UNPLUGGED = "0";
+String PLUGSTATUS_PLUGGED = "1";
 
 // chargingStatus
 // From https://github.com/hacf-fr/renault-api/blob/main/src/renault_api/kamereon/enums.py#L6
-#define CHARGINGSTATUS_CHARGE_IN_PROGRESS "1.0"
-#define CHARGINGSTATUS_WAITING_FOR_A_PLANNED_CHARGE "0.1"
-#define CHARGINGSTATUS_WAITING_FOR_CURRENT_CHARGE "0.3"
+String CHARGINGSTATUS_CHARGE_IN_PROGRESS = "1.0";
+String CHARGINGSTATUS_WAITING_FOR_A_PLANNED_CHARGE = "0.1";
+String CHARGINGSTATUS_WAITING_FOR_CURRENT_CHARGE = "0.3";
 
 // put function declarations here:
 void drawLine(int x0, int y0, int y1, int y2);
@@ -266,47 +267,68 @@ void drawBatteryLevel(int batteryTopLeftX, int batteryTopLeftY, int percentage)
 }
 
 void displayInfo() {
-  // Landscape
-  const int rotation = 1;
+  // Portrait
+  const int rotation = 0;
   display.setRotation(rotation);
   
   // esp32 batterie level
-  drawBatteryLevel(220,7,batteryPercentage);
+  drawBatteryLevel(95,235,batteryPercentage);
 
   // car battery level
-  display.drawRoundRect(2, 10, 200, 87, 8, GxEPD_BLACK);
+  display.drawRoundRect(2, 10, 115, 87, 8, GxEPD_BLACK);
   display.setFont(&FreeSansBold50pt7b);
   display.setCursor(5, 85);
   // cheat code to keep free space on screen :
+  if (batteryLevel.length() == 1) {
+    batteryLevel = "0" + batteryLevel;
+  }
   if (batteryLevel == "100") {
-    display.print("99%");
+    display.print("99");
   } else {
-    display.print(batteryLevel + "%");
+    display.print(batteryLevel);
   }
 
   // Autonomy
   display.setFont(&FreeSans18pt7b);
-  display.setCursor(30, 125);
-  display.print(batteryAutonomy + "km");
-  display.drawBitmap(bitmap_range,0,100,30,30,GxEPD_BLACK);
+  display.setCursor(30, 130);
+  display.print(batteryAutonomy);
+  // Picto
+  display.drawBitmap(bitmap_range,0,105,30,30,GxEPD_BLACK);
 
   // draw icons
+  display.drawRoundRect(5, 140, 110, 50, 8, GxEPD_BLACK);
   if (plugStatus == PLUGSTATUS_PLUGGED) {
-    display.drawBitmap(bitmap_plug,205,17,40,40,GxEPD_BLACK);
+    display.drawBitmap(bitmap_plug,10,145,40,40,GxEPD_BLACK);
   }
 
   if (chargingStatus == CHARGINGSTATUS_CHARGE_IN_PROGRESS) {
-    display.drawBitmap(bitmap_charging,205,57,40,40,GxEPD_BLACK);
+    display.drawBitmap(bitmap_charging,66,145,40,40,GxEPD_BLACK);
     
     // Charging power
-    display.setCursor(145, 125);
+    display.setCursor(10, 220);
     display.print(chargingInstantaneousPower + "kW");
   }
 
   if (chargingStatus == CHARGINGSTATUS_WAITING_FOR_A_PLANNED_CHARGE || chargingStatus == CHARGINGSTATUS_WAITING_FOR_CURRENT_CHARGE) {
-    display.drawBitmap(bitmap_waiting,205,57,40,40,GxEPD_BLACK);
+    display.drawBitmap(bitmap_waiting,65,145,40,40,GxEPD_BLACK);
   }
+
+  display.setFont(&FreeSans9pt7b);
+  display.setCursor(10,240);
+  timestamp.remove(0,11);
+  timestamp.replace("Z","");
+  display.print(timestamp);
+
+#ifdef DEBUG_RENAULTAPI
+  display.setFont(&FreeSans9pt7b);
+  display.setCursor(90,115);
+  display.print(plugStatus);
+
+  display.setCursor(90,135);
+  display.print(chargingStatus);
+#endif
 }
+
 
 bool refreshJwt() {
   if(accounts_login()) {
@@ -329,7 +351,7 @@ bool accounts_getJWT() {
     http.begin(gigya_root_url + "/accounts.getJWT");
     http.addHeader("Content-Type", "application/x-www-form-urlencoded");
     int httpCode = http.POST(renaultZEJwtPayload);
-    Serial.println("getJWT httpcode");
+    Serial.print("getJWT httpcode ");
     Serial.println(httpCode);
     if (httpCode == 200) {
         DynamicJsonDocument doc(2048);
@@ -366,7 +388,7 @@ bool accounts_login() {
     http.begin(gigya_root_url + "/accounts.login");
     http.addHeader("Content-Type", "application/x-www-form-urlencoded");
     int httpCode = http.POST(renaultZELoginPayload);
-    Serial.println("login httpcode");
+    Serial.print("login httpcode ");
     Serial.println(httpCode);
     if (httpCode == 200) {
         DynamicJsonDocument doc(2048);
@@ -403,7 +425,7 @@ bool getBatteryStatus() {
     http.addHeader("x-gigya-id_token", x_gigya_id_token);
 
     int httpCode = http.GET();
-    Serial.println("battery-status httpcode");
+    Serial.print("battery-status httpcode ");
     Serial.println(httpCode);
     if (httpCode == 200) {
         DynamicJsonDocument doc(1024);

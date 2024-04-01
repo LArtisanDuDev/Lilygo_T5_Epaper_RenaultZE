@@ -1,6 +1,6 @@
 // Decomment to DEBUG
 //#define DEBUG_RENAULTAPI
-// #define DEBUG_GRID
+//#define DEBUG_GRID
 //#define DEBUG_WIFI
 
 // Customize with your settings

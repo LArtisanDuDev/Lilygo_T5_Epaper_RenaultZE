@@ -26,13 +26,15 @@ https://javl.github.io/image2cpp/
 
 https://rop.nl/truetype2gfx/
 
-Et les icônes proviennent de :
+Les icônes proviennent de :
 
 [Ev icons created by juicy_fish - Flaticon](https://www.flaticon.com/free-icons/ev)
 
 [Wireless charging icons created by Pixel perfect - Flaticon](https://www.flaticon.com/free-icons/wireless-charging)
 
 [Plug icons created by Gregor Cresnar - Flaticon](https://www.flaticon.com/free-icons/plug)
+
+La mise en place des appels d'api a été faite grâce aux informations de ce [blog](https://muscatoxblog.blogspot.com/2019/07/delving-into-renaults-new-api.html) et en étudiant le code Python du projet [renault-api](https://github.com/hacf-fr/renault-api).
 
 ## Contribution
 

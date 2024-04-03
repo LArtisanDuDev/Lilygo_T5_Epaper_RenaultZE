@@ -33,6 +33,9 @@ const char* wifi_key = "";
 // board wake up interval in seconds
 const int WAKEUP_INTERVAL = 600;
 
+// delay in seconds between your place and UTC time
+const unsigned long DELAYUTC_YOURTIMEZONE = 7200;
+
 // ==================================
 //           CUSTOMIZE END
 // ==================================

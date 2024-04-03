@@ -19,6 +19,8 @@
 #include <Fonts/FreeSans18pt7b.h>
 #include <Fonts/FreeSans9pt7b.h>
 #include <icons.h>
+#include <TimeLib.h>
+#define NUM(off, mult) ((timestamp[(off)] - '0') * (mult))
 
 // ESP32 battery (not Car :) )
 const int PIN_BAT = 35;        // adc for bat voltage
@@ -218,7 +220,7 @@ void displayInfo()
   // car battery level
   display.drawRoundRect(2, 10, 115, 87, 8, GxEPD_BLACK);
   display.setFont(&FreeSansBold50pt7b);
-  display.setCursor(5, 85);
+  display.setCursor(5, 80);
   // cheat code to keep free space on screen :
   if (batteryLevel.length() == 1)
   {
@@ -232,6 +234,10 @@ void displayInfo()
   {
     display.print(batteryLevel);
   }
+
+  display.setFont(&FreeSans9pt7b);
+  display.setCursor(90, 94);
+  display.print("%");
 
   // Autonomy
   display.setFont(&FreeSans18pt7b);
@@ -258,14 +264,28 @@ void displayInfo()
 
   if (chargingStatus == CHARGINGSTATUS_WAITING_FOR_A_PLANNED_CHARGE || chargingStatus == CHARGINGSTATUS_WAITING_FOR_CURRENT_CHARGE)
   {
-    display.drawBitmap(bitmap_waiting, 65, 145, 40, 40, GxEPD_BLACK);
+    display.drawBitmap(bitmap_waiting, 66, 145, 40, 40, GxEPD_BLACK);
   }
 
   display.setFont(&FreeSans9pt7b);
   display.setCursor(10, 240);
-  timestamp.remove(0, 11);
-  timestamp.replace("Z", "");
-  display.print(timestamp);
+  // Add : DELAYUTC_YOURTIMEZONE
+  tmElements_t tm;
+  int Year, Month, Day, Hour, Minute, Second;
+  // parse provided timestamp
+  sscanf(timestamp.c_str(), "%d-%d-%dT%d:%d:%dZ", &Year, &Month, &Day, &Hour, &Minute, &Second);
+  tm.Year = CalendarYrToTm(Year);
+  tm.Month = Month;
+  tm.Day = Day;
+  tm.Hour = Hour;
+  tm.Minute = Minute;
+  tm.Second = Second;
+  // Add local delay
+  time_t t = makeTime(tm) + DELAYUTC_YOURTIMEZONE;
+  char buf1[9];
+  sprintf(buf1, "%02d:%02d:%02d", hour(t), minute(t), second(t));
+
+  display.print(buf1);
 
 #ifdef DEBUG_RENAULTAPI
   display.setFont(&FreeSans9pt7b);

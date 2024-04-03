@@ -1,5 +1,5 @@
 // Decomment to DEBUG
-//#define DEBUG_RENAULTAPI
+#define DEBUG_RENAULTAPI
 //#define DEBUG_GRID
 //#define DEBUG_WIFI
 
@@ -43,10 +43,12 @@ RTC_DATA_ATTR char x_gigya_id_token[1000] = "";
 String timestamp = "";
 String batteryLevel = "";
 String batteryAutonomy = "";
+String batteryAvailableEnergy = "";
 String plugStatus = "";
 String chargingStatus = "";
 String chargingInstantaneousPower = "";
 String chargingRemainingTime = "";
+String batteryTemperature = "";
 
 // plugStatus
 // from https://github.com/hacf-fr/renault-api/blob/main/src/renault_api/kamereon/enums.py#L20
@@ -55,7 +57,7 @@ String PLUGSTATUS_PLUGGED = "1";
 
 // chargingStatus
 // From https://github.com/hacf-fr/renault-api/blob/main/src/renault_api/kamereon/enums.py#L6
-String CHARGINGSTATUS_CHARGE_IN_PROGRESS = "1.0";
+String CHARGINGSTATUS_CHARGE_IN_PROGRESS = "1";
 String CHARGINGSTATUS_WAITING_FOR_A_PLANNED_CHARGE = "0.1";
 String CHARGINGSTATUS_WAITING_FOR_CURRENT_CHARGE = "0.3";
 
@@ -218,7 +220,7 @@ void displayInfo()
   drawBatteryLevel(95, 235, batteryPercentage);
 
   // car battery level
-  display.drawRoundRect(2, 10, 115, 87, 8, GxEPD_BLACK);
+  display.drawRoundRect(2, 10, 115, 90, 8, GxEPD_BLACK);
   display.setFont(&FreeSansBold50pt7b);
   display.setCursor(5, 80);
   // cheat code to keep free space on screen :
@@ -236,9 +238,13 @@ void displayInfo()
   }
 
   display.setFont(&FreeSans9pt7b);
-  display.setCursor(90, 94);
+  display.setCursor(90, 95);
   display.print("%");
 
+  display.setFont(&FreeSans9pt7b);
+  display.setCursor(10, 95);
+  display.print(batteryAvailableEnergy + " kW");
+  
   // Autonomy
   display.setFont(&FreeSans18pt7b);
   display.setCursor(30, 130);
@@ -256,12 +262,14 @@ void displayInfo()
   if (chargingStatus == CHARGINGSTATUS_CHARGE_IN_PROGRESS)
   {
     display.drawBitmap(bitmap_charging, 66, 145, 40, 40, GxEPD_BLACK);
+    display.setCursor(10, 220);
+    // Charging power (not acurate)
+    //display.print(chargingInstantaneousPower + "kW"); 
+    // replaced by remaining time
+    display.print(chargingRemainingTime + "mn");
   }
 
-  // Charging power (not acurate)
-  display.setCursor(10, 220);
-  display.print(chargingInstantaneousPower + "kW");
-
+  
   if (chargingStatus == CHARGINGSTATUS_WAITING_FOR_A_PLANNED_CHARGE || chargingStatus == CHARGINGSTATUS_WAITING_FOR_CURRENT_CHARGE)
   {
     display.drawBitmap(bitmap_waiting, 66, 145, 40, 40, GxEPD_BLACK);
@@ -417,6 +425,8 @@ bool getBatteryStatus()
       deserializeJson(doc, payload);
 
       timestamp = doc["data"]["attributes"]["timestamp"].as<String>();
+      batteryAvailableEnergy = doc["data"]["attributes"]["batteryAvailableEnergy"].as<String>(); 
+      batteryTemperature = doc["data"]["attributes"]["batteryTemperature"].as<String>(); 
       batteryLevel = doc["data"]["attributes"]["batteryLevel"].as<String>();
       batteryAutonomy = doc["data"]["attributes"]["batteryAutonomy"].as<String>();
       plugStatus = doc["data"]["attributes"]["plugStatus"].as<String>();

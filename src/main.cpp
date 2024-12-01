@@ -1,5 +1,5 @@
 // Decomment to DEBUG
-#define DEBUG_RENAULTAPI
+//#define DEBUG_RENAULTAPI
 //#define DEBUG_GRID
 //#define DEBUG_WIFI
 
@@ -71,7 +71,7 @@ void drawDebugGrid();
 bool refreshJwt();
 bool accounts_login();
 bool accounts_getJWT();
-bool getBatteryStatus();
+int getBatteryStatus();
 
 void drawLine(int x0, int y0, int x1, int y1)
 {
@@ -114,13 +114,23 @@ void setup()
   {
 
     // Gathering RenaultZE datas
-    bool result = getBatteryStatus();
-    if (!result)
+    int result = getBatteryStatus();
+    if (result != 200)
     {
       Serial.println("Jwt probably expired, get new one");
       if (refreshJwt())
       {
-        result = getBatteryStatus();
+        result = -1;
+        int cpt = 0;
+        while (result != 200 && cpt < 3) {
+#ifdef DEBUG_RENAULTAPI
+          Serial.print("getBatteryStatus :");
+          Serial.print(cpt);
+          Serial.println("/3");
+#endif
+          result = getBatteryStatus();
+          cpt++;
+        }
       }
       else
       {
@@ -129,7 +139,7 @@ void setup()
       }
     }
 
-    if (result)
+    if (result == 200)
     {
       Serial.println("Start display");
 #ifdef DEBUG_GRID
@@ -241,9 +251,11 @@ void displayInfo()
   display.setCursor(90, 95);
   display.print("%");
 
-  display.setFont(&FreeSans9pt7b);
-  display.setCursor(10, 95);
-  display.print(batteryAvailableEnergy + " kW");
+  if (batteryAvailableEnergy != "null") {
+    display.setFont(&FreeSans9pt7b);
+    display.setCursor(10, 95);
+    display.print(batteryAvailableEnergy + " kW");
+  }
   
   // Autonomy
   display.setFont(&FreeSans18pt7b);
@@ -307,11 +319,34 @@ void displayInfo()
 
 bool refreshJwt()
 {
-  if (accounts_login())
-  {
-    return accounts_getJWT();
+  bool result = false;
+  bool result2 = false;
+  int cpt = 0;
+  while (!result && cpt < 5) {
+#ifdef DEBUG_RENAULTAPI
+    Serial.print("accounts_login :");
+    Serial.print(cpt);
+    Serial.println("/5");
+#endif
+    if (accounts_login())
+    {
+      result = true;
+      int cpt2 = 0;
+      result2 = false;
+      while (!result2 && cpt2 < 5)
+      {
+#ifdef DEBUG_RENAULTAPI
+        Serial.print("accounts_getJWT :");
+        Serial.print(cpt);
+        Serial.println("/5");
+#endif
+        result2 = accounts_getJWT();
+        cpt2++;
+      }
+    }
+    cpt++;
   }
-  return false;
+  return result && result2;
 }
 
 bool accounts_getJWT()
@@ -327,28 +362,35 @@ bool accounts_getJWT()
 #endif
 
     http.begin(gigya_root_url + "/accounts.getJWT");
+    http.setTimeout(60000);
     http.addHeader("Content-Type", "application/x-www-form-urlencoded");
     int httpCode = http.POST(renaultZEJwtPayload);
-    Serial.print("getJWT httpcode ");
+    Serial.print("accounts_getJWT httpcode : ");
     Serial.println(httpCode);
     if (httpCode == 200)
     {
       DynamicJsonDocument doc(2048);
       String payload = http.getString();
 #ifdef DEBUG_RENAULTAPI
-      Serial.println("body getJWT:");
+      Serial.println("accounts_getJWT body:");
       Serial.println(payload);
+      Serial.print("payload length (max 2048) : ");
+      Serial.println(payload.length());      
 #endif
       deserializeJson(doc, payload);
-
-      // get jwt
-      String jwt_token = doc["id_token"].as<String>();
-      strcpy(x_gigya_id_token, jwt_token.c_str());
-      retour = true;
+      String statusCode = doc["statusCode"].as<String>();
+      // httpCode == 200 but functional statusCode inside json
+      // can be other thing !!!! (dumb)
+      if (statusCode == "200") { 
+        // get jwt
+        String jwt_token = doc["id_token"].as<String>();
+        strcpy(x_gigya_id_token, jwt_token.c_str());
+        retour = true;
+      }
     }
     else
     {
-      Serial.println("/accounts.getJWT : " + http.errorToString(httpCode));
+      Serial.println("accounts_getJWT /accounts.getJWT : " + http.errorToString(httpCode));
     }
     http.end();
   }
@@ -368,51 +410,53 @@ bool accounts_login()
 #endif
 
     http.begin(gigya_root_url + "/accounts.login");
+    http.setTimeout(60000);
     http.addHeader("Content-Type", "application/x-www-form-urlencoded");
     int httpCode = http.POST(renaultZELoginPayload);
-    Serial.print("login httpcode ");
+    Serial.print("accounts_login httpcode : ");
     Serial.println(httpCode);
     if (httpCode == 200)
     {
       DynamicJsonDocument doc(2048);
       String payload = http.getString();
 #ifdef DEBUG_RENAULTAPI
-      Serial.println("body login:");
+      Serial.println("accounts_login body :");
       Serial.println(payload);
+      Serial.print("payload length (max 2048) : ");
+      Serial.println(payload.length());      
 #endif
-      deserializeJson(doc, payload);
 
+      deserializeJson(doc, payload);
       // get cookieValue
       gigya_login_token = doc["sessionInfo"]["cookieValue"].as<String>();
       retour = true;
     }
     else
     {
-      Serial.println("/accounts.login : " + http.errorToString(httpCode));
+      Serial.println("accounts_login : " + http.errorToString(httpCode));
     }
     http.end();
   }
   return retour;
 }
 
-bool getBatteryStatus()
+int getBatteryStatus()
 {
-  bool retour = false;
+  int httpCode = -1;
   if (WiFi.status() == WL_CONNECTED)
   {
     HTTPClient http;
 
     String kamereon_url = kamereon_root_url + "/commerce/v1/accounts/" + accound_id + "/kamereon/kca/car-adapter/v2/cars/" + vin + "/battery-status?country=" + country;
-    Serial.println(kamereon_url);
-
+    
     http.begin(kamereon_url);
-
+    http.setTimeout(60000);
     http.addHeader("Content-type", "application/vnd.api+json");
     http.addHeader("apikey", kamereon_api_key);
     http.addHeader("x-gigya-id_token", x_gigya_id_token);
 
-    int httpCode = http.GET();
-    Serial.print("battery-status httpcode ");
+    httpCode = http.GET();
+    Serial.print("getBatteryStatus httpcode : ");
     Serial.println(httpCode);
     if (httpCode == 200)
     {
@@ -421,6 +465,8 @@ bool getBatteryStatus()
 #ifdef DEBUG_RENAULTAPI
       Serial.println("body battery-status:");
       Serial.println(payload);
+      Serial.print("payload length (max 1024) : ");
+      Serial.println(payload.length());      
 #endif
       deserializeJson(doc, payload);
 
@@ -443,10 +489,9 @@ bool getBatteryStatus()
       Serial.println("chargingInstantaneousPower :" + chargingInstantaneousPower);
       Serial.println("chargingRemainingTime :" + chargingRemainingTime);
 #endif
-      retour = true;
     }
   }
-  return retour;
+  return httpCode;
 }
 
 void drawDebugGrid()

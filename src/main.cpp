@@ -22,6 +22,10 @@
 #include <TimeLib.h>
 #define NUM(off, mult) ((timestamp[(off)] - '0') * (mult))
 
+#define USER_AGENT "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
+const int TIMEOUT = 60000;
+
+
 // ESP32 battery (not Car :) )
 const int PIN_BAT = 35;        // adc for bat voltage
 const float VOLTAGE_100 = 4.2; // Full battery curent li-ion
@@ -328,25 +332,24 @@ bool refreshJwt()
     Serial.print(cpt);
     Serial.println("/5");
 #endif
-    if (accounts_login())
+    result = accounts_login();
+    cpt++;
+  }
+  if (result) {
+    cpt = 0;
+    result = false;
+    while (!result && cpt < 5)
     {
-      result = true;
-      int cpt2 = 0;
-      result2 = false;
-      while (!result2 && cpt2 < 5)
-      {
 #ifdef DEBUG_RENAULTAPI
         Serial.print("accounts_getJWT :");
         Serial.print(cpt);
         Serial.println("/5");
 #endif
-        result2 = accounts_getJWT();
-        cpt2++;
-      }
+      result = accounts_getJWT();
+      cpt++;
     }
-    cpt++;
   }
-  return result && result2;
+  return result;
 }
 
 bool accounts_getJWT()
@@ -362,7 +365,8 @@ bool accounts_getJWT()
 #endif
 
     http.begin(gigya_root_url + "/accounts.getJWT");
-    http.setTimeout(60000);
+    http.setTimeout(TIMEOUT);
+    http.setUserAgent(USER_AGENT);
     http.addHeader("Content-Type", "application/x-www-form-urlencoded");
     int httpCode = http.POST(renaultZEJwtPayload);
     Serial.print("accounts_getJWT httpcode : ");
@@ -410,7 +414,8 @@ bool accounts_login()
 #endif
 
     http.begin(gigya_root_url + "/accounts.login");
-    http.setTimeout(60000);
+    http.setTimeout(TIMEOUT);
+    http.setUserAgent(USER_AGENT);
     http.addHeader("Content-Type", "application/x-www-form-urlencoded");
     int httpCode = http.POST(renaultZELoginPayload);
     Serial.print("accounts_login httpcode : ");
@@ -450,7 +455,8 @@ int getBatteryStatus()
     String kamereon_url = kamereon_root_url + "/commerce/v1/accounts/" + accound_id + "/kamereon/kca/car-adapter/v2/cars/" + vin + "/battery-status?country=" + country;
     
     http.begin(kamereon_url);
-    http.setTimeout(60000);
+    http.setTimeout(TIMEOUT);
+    http.setUserAgent(USER_AGENT);
     http.addHeader("Content-type", "application/vnd.api+json");
     http.addHeader("apikey", kamereon_api_key);
     http.addHeader("x-gigya-id_token", x_gigya_id_token);
